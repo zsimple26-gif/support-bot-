@@ -12,7 +12,10 @@ from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
 # ------------------- НАСТРОЙКИ ------------------- #
-API_TOKEN = os.environ.get("BOT_API_TOKEN")  # токен бота из переменных окружения
+API_TOKEN = os.environ.get("BOT_API_TOKEN")
+if not API_TOKEN:
+    raise ValueError("BOT_API_TOKEN не задан в Environment Variables!")
+bot = Bot(token=API_TOKEN)
 SUPPORT_GROUP_ID = int(os.environ.get("SUPPORT_GROUP_ID", "0"))  # ID группы операторов
 MASTER_OPERATOR_ID = int(os.environ.get("MASTER_OPERATOR_ID", "0"))  # твой ID
 
