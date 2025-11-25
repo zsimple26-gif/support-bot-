@@ -423,5 +423,19 @@ async def main():
     await dp.start_polling(bot)
 
 
-if __name__ == "__main__":
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Бот работает!"
+
+def start_bot():
+    import asyncio
     asyncio.run(main())
+
+# запускаем бота в отдельном потоке
+threading.Thread(target=start_bot).start()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
