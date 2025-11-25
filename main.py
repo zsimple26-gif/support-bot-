@@ -413,10 +413,29 @@ async def info_about_user(message: Message):
     await message.answer(out)
 
 
-# ------------------- ЗАПУСК (удаляем webhook) ------------------- #
+# ------------------- ЗАПУСК (удаляем webhook и старт бота) ------------------- #
+async def main():
+    try:
+        await bot.delete_webhook(drop_pending_updates=True)
+    except Exception:
+        pass
+    await dp.start_polling(bot)
+
+# ------------------- Flask для Render ------------------- #
+from flask import Flask
+import threading
+import asyncio
+import os
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Бот работает!"
+
 def start_bot():
     try:
-        asyncio.run(main())  # твоя функция main с aiogram
+        asyncio.run(main())  # main() уже определена выше
     except Exception as e:
         import traceback
         print("Ошибка при запуске бота:", e)
