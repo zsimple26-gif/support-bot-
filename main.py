@@ -1,12 +1,31 @@
 # bot.py — финальная рабочая версия (aiogram 3.x)
-import asyncio
-import threading
-import os
 from flask import Flask
-# aiogram импорты
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram.filters import Command
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+import threading
+import asyncio
+import os
+import sys
+import traceback
+
+app = Flask(__name__)
+
+@app.route("/")
+def home():
+    return "Бот работает!"
+
+def start_bot():
+    try:
+        # Перехватываем все исключения и печатаем их в stdout
+        asyncio.run(main())  # main() должна быть определена выше
+    except Exception:
+        print("Ошибка при запуске бота:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
+
+# запускаем бота в отдельном потоке
+threading.Thread(target=start_bot, daemon=True).start()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
 # ------------------- НАСТРОЙКИ ------------------- #  
 import os
