@@ -1,10 +1,9 @@
 # bot.py — финальная рабочая версия (aiogram 3.x)
 import asyncio
-import logging
-from typing import Optional
-from flask import Flask
-import os
 import threading
+import os
+from flask import Flask
+# aiogram импорты
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
