@@ -20,8 +20,8 @@ def home():
 
 def start_bot():
     try:
-        # Перехватываем все исключения и печатаем их в stdout
-        asyncio.run(main())  # main() должна быть определена выше
+        print("Запуск бота...")  # <-- добавляем сюда
+        asyncio.run(main())       # main() должна быть определена выше
     except Exception:
         print("Ошибка при запуске бота:", file=sys.stderr)
         traceback.print_exc(file=sys.stderr)
