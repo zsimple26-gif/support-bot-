@@ -414,13 +414,18 @@ async def info_about_user(message: Message):
 
 
 # ------------------- ЗАПУСК (удаляем webhook) ------------------- #
-import asyncio
-import logging
-from typing import Optional
-from flask import Flask
-import os
-import threading
-from aiogram import Bot, Dispatcher, F, Router
-from aiogram.filters import Command
-from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
+def start_bot():
+    try:
+        asyncio.run(main())  # твоя функция main с aiogram
+    except Exception as e:
+        import traceback
+        print("Ошибка при запуске бота:", e)
+        traceback.print_exc()
+
+# запускаем бота в отдельном потоке
+threading.Thread(target=start_bot).start()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
 
