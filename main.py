@@ -1,44 +1,20 @@
-# bot.py — финальная рабочая версия (aiogram 3.x)
-
+# bot.py — полностью рабочая версия aiogram 3.x + Flask
 import asyncio
 import logging
 from typing import Optional
 from flask import Flask
 import os
 import threading
-import sys           
-import traceback     
+import sys
+import traceback
 from aiogram import Bot, Dispatcher, F, Router
 from aiogram.filters import Command
 from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Бот работает!"
-
-def start_bot():
-    try:
-        print("Запуск бота...")  # <-- добавляем сюда
-        asyncio.run(main())       # main() должна быть определена выше
-    except Exception:
-        print("Ошибка при запуске бота:", file=sys.stderr)
-        traceback.print_exc(file=sys.stderr)
-
-# запускаем бота в отдельном потоке
-threading.Thread(target=start_bot, daemon=True).start()
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
-
-# ------------------- НАСТРОЙКИ ------------------- #  
-import os
-
-API_TOKEN = os.environ.get("API_TOKEN")
-SUPPORT_GROUP_ID = int(os.environ.get("SUPPORT_GROUP_ID"))
-MASTER_OPERATOR_ID = int(os.environ.get("MASTER_OPERATOR_ID"))
+# ------------------- НАСТРОЙКИ ------------------- #
+API_TOKEN = os.environ.get("BOT_API_TOKEN")  # токен бота из переменных окружения
+SUPPORT_GROUP_ID = int(os.environ.get("SUPPORT_GROUP_ID", "0"))  # ID группы операторов
+MASTER_OPERATOR_ID = int(os.environ.get("MASTER_OPERATOR_ID", "0"))  # твой ID
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -51,8 +27,7 @@ dp.include_router(router)
 # Храним выбранных пользователей операторов: {operator_id: user_id}
 active_users: dict[int, int] = {}
 
-# ------------------- ТЕКСТЫ И МЕНЮ ------------------- #
-
+# ------------------- МЕНЮ ------------------- #
 def main_menu() -> ReplyKeyboardMarkup:
     kb = ReplyKeyboardMarkup(resize_keyboard=True)
     kb.add(KeyboardButton("😇 Мне нужна поддержка"))
@@ -68,7 +43,7 @@ def support_menu() -> ReplyKeyboardMarkup:
     kb.add(KeyboardButton("Главное меню"))
     return kb
 
-# Основные тексты (ты прислал — вставил)
+# ------------------- ТЕКСТЫ ------------------- #
 welcome_text = (
     "Добро пожаловать, милый человек.\n\n"
     "Я здесь, чтобы помочь тебе мягко и без лишнего давления.\n\n"
@@ -142,7 +117,7 @@ faq_text = (
     "О, он платонически влюблен в каждого пользователя 💖. Но обещает хранить верность смайликам и вашим вопросам 😘"
 )
 
-# ------------------- HELPERS для приватной отправки МАСТЕРУ ------------------- #
+# ------------------- HELPERS ------------------- #
 async def send_master_text_info(user, message: Message):
     username = f"@{user.username}" if getattr(user, "username", None) else "—"
     fullname = " ".join(filter(None, [getattr(user, "first_name", ""), getattr(user, "last_name", "")])).strip() or "—"
@@ -156,7 +131,6 @@ async def send_master_text_info(user, message: Message):
         f"Сообщение/Подпись:\n{text_body}"
     )
     await bot.send_message(MASTER_OPERATOR_ID, out)
-
 
 async def send_master_media(user, message: Message):
     if message.photo:
@@ -188,7 +162,6 @@ async def send_master_media(user, message: Message):
     else:
         await bot.send_message(MASTER_OPERATOR_ID, "[Неизвестное медиа]")
 
-
 def placeholder_for_media(message: Message) -> str:
     if message.photo:
         return "Пользователь отправил фото 📸"
@@ -208,16 +181,11 @@ def placeholder_for_media(message: Message) -> str:
         return "Пользователь отправил аудио 🎧"
     return "Пользователь отправил медиа"
 
-
 # ------------------- ХЕНДЛЕРЫ ------------------- #
-
 @router.message(Command("start"))
 async def start(message: Message):
-    # Первое приветствие — отправляем welcome_text и кнопки
     await message.answer(welcome_text, reply_markup=main_menu())
 
-
-# Кнопки главного меню
 @router.message(F.text == "😇 Мне нужна поддержка")
 async def need_help(message: Message):
     await message.answer(support_intro, reply_markup=support_menu())
@@ -234,8 +202,6 @@ async def rules(message: Message):
 async def faq(message: Message):
     await message.answer(faq_text)
 
-
-# Подменю поддержки
 @router.message(F.text == "Хочу поделиться кое чем 😍")
 async def share_handler(message: Message):
     await message.answer(share_text)
@@ -248,13 +214,9 @@ async def advice_handler(message: Message):
 async def back_main(message: Message):
     await message.answer("Возвращаю в главное меню.", reply_markup=main_menu())
 
-
-# ------------------- 1) Пользователь пишет в бота ------------------- #
 @router.message(F.chat.type == "private")
 async def from_user(message: Message):
     user = message.from_user
-
-    # 1) Отправляем мастеру (лично) полную информацию + медиа если есть
     try:
         await send_master_text_info(user, message)
         if any([message.photo, message.video, message.video_note, message.voice, message.sticker,
@@ -262,50 +224,36 @@ async def from_user(message: Message):
             await send_master_media(user, message)
     except Exception as e:
         logger.exception("Не смог отправить мастеру личное сообщение: %s", e)
-
-    # 2) В чат операторов — отправляем только ID + текст (или placeholder)
     header = f"#ID{user.id}"
-
     try:
         await bot.send_message(SUPPORT_GROUP_ID, header)
         if message.text:
             await bot.send_message(SUPPORT_GROUP_ID, message.text)
         else:
-            # отправляем заглушку вместо реального медиа
             await bot.send_message(SUPPORT_GROUP_ID, placeholder_for_media(message))
-        # подсказка команды /user
         await bot.send_message(SUPPORT_GROUP_ID, f"/user {user.id}")
     except Exception as e:
         logger.exception("Не смог отправить сообщение в группу операторов: %s", e)
-
-    # 3) Ответ пользователю
     try:
         await message.answer("💌 Сообщение отправлено в поддержку!", reply_markup=main_menu())
     except Exception:
         pass
 
-
-# ------------------- 2) ОПЕРАТОР ВЫБИРАЕТ ПОЛЬЗОВАТЕЛЯ ------------------- #
 @router.message(Command("user"), F.chat.id == SUPPORT_GROUP_ID)
 async def select_user(message: Message):
     bot_username = (await message.bot.me()).username
     clean = message.text.replace(f"@{bot_username}", "") if bot_username else message.text
     clean = clean.strip()
     parts = clean.split()
-
     if len(parts) != 2:
         return await message.answer("Используй: /user USER_ID")
-
     try:
         user_id = int(parts[1])
     except ValueError:
         return await message.answer("USER_ID должен быть числом!")
-
     active_users[message.from_user.id] = user_id
     await message.answer(f"🔗 Привязан к клиенту: {user_id}")
 
-
-# ------------------- 3) ОПЕРАТОР ОТВЯЗЫВАЕТСЯ ------------------- #
 @router.message(Command("stop"), F.chat.id == SUPPORT_GROUP_ID)
 async def stop_user(message: Message):
     if message.from_user.id in active_users:
@@ -314,98 +262,45 @@ async def stop_user(message: Message):
     else:
         await message.answer("❗ Ты не привязан ни к одному пользователю.")
 
-
-# ------------------- 4) ОПЕРАТОР ПИШЕТ ПОЛЬЗОВАТЕЛЮ (в группе) ------------------- #
 @router.message(F.chat.id == SUPPORT_GROUP_ID)
 async def operator_send(message: Message):
     admin_id = message.from_user.id
-
-    # Игнорируем системные команды (например /user)
     if message.text and message.text.startswith("/"):
         return
-
     if admin_id not in active_users:
-        return  # оператор не привязан — игнорируем
-
+        return
     user_id = active_users[admin_id]
-
-    # ТЕКСТ
-    if message.text:
-        try:
+    try:
+        if message.text:
             await bot.send_message(user_id, message.text)
-        except Exception as e:
-            logger.exception("Ошибка при отправке текста пользователю: %s", e)
-
-    # ФОТО
-    if message.photo:
-        try:
+        if message.photo:
             await bot.send_photo(user_id, message.photo[-1].file_id, caption=message.caption or "")
-        except Exception as e:
-            logger.exception("Ошибка при отправке фото пользователю: %s", e)
-
-    # ВИДЕО
-    if message.video:
-        try:
+        if message.video:
             await bot.send_video(user_id, message.video.file_id, caption=message.caption or "")
-        except Exception as e:
-            logger.exception("Ошибка при отправке видео пользователю: %s", e)
-
-    # ВИДЕО-НОТ (кружок)
-    if message.video_note:
-        try:
+        if message.video_note:
             await bot.send_video_note(user_id, message.video_note.file_id)
-        except Exception as e:
-            logger.exception("Ошибка при отправке видеозаметки пользователю: %s", e)
-
-    # ДОКУМЕНТ
-    if message.document:
-        try:
+        if message.document:
             await bot.send_document(user_id, message.document.file_id, caption=message.caption or "")
-        except Exception as e:
-            logger.exception("Ошибка при отправке документа пользователю: %s", e)
-
-    # СТИКЕР
-    if message.sticker:
-        try:
+        if message.sticker:
             await bot.send_sticker(user_id, message.sticker.file_id)
-        except Exception as e:
-            logger.exception("Ошибка при отправке стикера пользователю: %s", e)
-
-    # ГОЛОС
-    if message.voice:
-        try:
+        if message.voice:
             await bot.send_voice(user_id, message.voice.file_id)
-        except Exception as e:
-            logger.exception("Ошибка при отправке голосового пользователю: %s", e)
-
-    # АНИМАЦИЯ / GIF
-    if message.animation:
-        try:
+        if message.animation:
             await bot.send_animation(user_id, message.animation.file_id, caption=message.caption or "")
-        except Exception as e:
-            logger.exception("Ошибка при отправке GIF пользователю: %s", e)
-
-    # АУДИО
-    if message.audio:
-        try:
+        if message.audio:
             await bot.send_audio(user_id, message.audio.file_id, caption=message.caption or "")
-        except Exception as e:
-            logger.exception("Ошибка при отправке аудио пользователю: %s", e)
+    except Exception as e:
+        logger.exception("Ошибка при отправке пользователю: %s", e)
 
-
-# ------------------- 5) /info — только для мастера (ты) ------------------- #
 @router.message(Command("info"))
 async def info_about_user(message: Message):
     if message.from_user.id != MASTER_OPERATOR_ID:
         return await message.answer("⛔ Команда недоступна.")
-
     bot_username = (await message.bot.me()).username
     text = message.text
     if bot_username:
         text = text.replace(f"@{bot_username}", "").strip()
-
     parts = text.split()
-
     if len(parts) == 2:
         try:
             user_id = int(parts[1])
@@ -416,17 +311,14 @@ async def info_about_user(message: Message):
         if admin_id not in active_users:
             return await message.answer("Ты не выбрал пользователя через /user и не передал ID.")
         user_id = active_users[admin_id]
-
     try:
         user = await bot.get_chat(user_id)
     except Exception as e:
         logger.exception("Не удалось получить инфо о пользователе: %s", e)
         return await message.answer("❌ Не могу получить информацию о пользователе (возможно, приватность).")
-
     username = f"@{user.username}" if getattr(user, "username", None) else "—"
     fullname = " ".join(filter(None, [getattr(user, "first_name", ""), getattr(user, "last_name", "")])).strip() or "—"
     lang = getattr(user, "language_code", "—")
-
     out = (
         f"🧾 Информация о пользователе:\n\n"
         f"• ID: <code>{user.id}</code>\n"
@@ -436,8 +328,7 @@ async def info_about_user(message: Message):
     )
     await message.answer(out)
 
-
-# ------------------- ЗАПУСК (удаляем webhook и старт бота) ------------------- #
+# ------------------- ЗАПУСК БОТА ------------------- #
 async def main():
     try:
         await bot.delete_webhook(drop_pending_updates=True)
@@ -445,12 +336,7 @@ async def main():
         pass
     await dp.start_polling(bot)
 
-# ------------------- Flask для Render ------------------- #
-from flask import Flask
-import threading
-import asyncio
-import os
-
+# ------------------- Flask ------------------- #
 app = Flask(__name__)
 
 @app.route("/")
@@ -459,14 +345,12 @@ def home():
 
 def start_bot():
     try:
-        asyncio.run(main())  # main() уже определена выше
-    except Exception as e:
-        import traceback
-        print("Ошибка при запуске бота:", e)
-        traceback.print_exc()
+        asyncio.run(main())
+    except Exception:
+        print("Ошибка при запуске бота:", file=sys.stderr)
+        traceback.print_exc(file=sys.stderr)
 
-# запускаем бота в отдельном потоке
-threading.Thread(target=start_bot).start()
+threading.Thread(target=start_bot, daemon=True).start()
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
