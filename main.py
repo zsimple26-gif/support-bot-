@@ -414,28 +414,12 @@ async def info_about_user(message: Message):
 
 
 # ------------------- ЗАПУСК (удаляем webhook) ------------------- #
-async def main():
-    try:
-        await bot.delete_webhook(drop_pending_updates=True)
-    except Exception:
-        pass
-
-    await dp.start_polling(bot)
-
-
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Бот работает!"
-
-def start_bot():
-    import asyncio
-    asyncio.run(main())
-
-# запускаем бота в отдельном потоке
-threading.Thread(target=start_bot).start()
-
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 5000))
-    app.run(host="0.0.0.0", port=port)
+import asyncio
+import logging
+from typing import Optional
+from flask import Flask
+import os
+import threading
+from aiogram import Bot, Dispatcher, F, Router
+from aiogram.filters import Command
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
