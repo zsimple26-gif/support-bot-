@@ -1,10 +1,16 @@
 # bot.py — финальная рабочая версия (aiogram 3.x)
-from flask import Flask
-import threading
+
 import asyncio
+import logging
+from typing import Optional
+from flask import Flask
 import os
-import sys
-import traceback
+import threading
+import sys           
+import traceback     
+from aiogram import Bot, Dispatcher, F, Router
+from aiogram.filters import Command
+from aiogram.types import Message, ReplyKeyboardMarkup, KeyboardButton
 
 app = Flask(__name__)
 
